@@ -1,0 +1,45 @@
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: vaultbox_postgres
+    environment:
+      POSTGRES_USER: vaultbox
+      POSTGRES_PASSWORD: vaultbox_secret
+      POSTGRES_DB: vaultbox_db
+    ports:
+      - '5433:5432' # 5433 avoids conflict with SimpleCI's 5432
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U vaultbox -d vaultbox_db']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  s3mock:
+    image: motoserver/moto:latest
+    container_name: vaultbox_s3
+    environment:
+      - MOTO_S3_DEFAULT_KEY_NAMES=true
+    ports:
+      - '4566:5000' # expose moto's default port 5000 as 4566 (familiar S3 port)
+    healthcheck:
+      test: ['CMD-SHELL', 'python3 -c "import urllib.request; urllib.request.urlopen(urllib.request.Request(\"http://localhost:5000/moto-api/reset\", method=\"POST\"))" && echo ok']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: vaultbox_redis
+    ports:
+      - '6380:6379' # 6380 avoids potential conflict with other local Redis
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres_data:
